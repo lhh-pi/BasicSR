@@ -1,37 +1,36 @@
-# TODO
 # general settings
-name: 201_RCANx2_scratch_DIV2K_rand0
-model_type: SRModel
+name: train_SwinIR_SRx2_scratch_P48W8_DIV2K_500k_B4G8
+model_type: SwinIRModel
 scale: 2
-num_gpu: 1  # set num_gpu: 0 for cpu mode
-manual_seed: 10
+num_gpu: auto
+manual_seed: 0
+
+tile: # use the tile mode for limited GPU memory when testing.
+  tile_size: 256 # the higher, the more utilized GPU memory and the less performance change against the full image. must be an integer multiple of the window size.
+  tile_pad: 32 # overlapping between adjacency patches.must be an integer multiple of the window size.
 
 # dataset and data loader settings
 datasets:
   train:
-    name: DIV2K
+    name: map600
     type: PairedImageDataset
-#    dataroot_gt: datasets/DIV2K/DIV2K_train_HR_sub
-#    dataroot_lq: datasets/DIV2K/DIV2K_train_LR_bicubic/X2_sub
+#    dataroot_gt: datasets/DF2K/DIV2K_train_HR_sub
+#    dataroot_lq: datasets/DF2K/DIV2K_train_LR_bicubic_X2_sub
+#    meta_info_file: basicsr/data/meta_info/meta_info_DIV2K800sub_GT.txt
     dataroot_gt: datasets/map600/map_train_HR_sub
     dataroot_lq: datasets/map600/map_train_LR_bicubic/X2_sub
-    # (for lmdb)
-    # dataroot_gt: datasets/DIV2K/DIV2K_train_HR_sub.lmdb
-    # dataroot_lq: datasets/DIV2K/DIV2K_train_LR_bicubic_X2_sub.lmdb
     filename_tmpl: '{}'
     io_backend:
       type: disk
-      # (for lmdb)
-      # type: lmdb
 
-    gt_size: 72
+    gt_size: 96
     use_hflip: true
     use_rot: true
 
     # data loader
     num_worker_per_gpu: 6
-    batch_size_per_gpu: 12
-    dataset_enlarge_ratio: 100
+    batch_size_per_gpu: 2
+    dataset_enlarge_ratio: 1
     prefetch_mode: ~
 
   val:
@@ -44,18 +43,19 @@ datasets:
 
 # network structures
 network_g:
-  type: RCAN
-  num_in_ch: 3
-  num_out_ch: 3
-  num_feat: 64
-  num_group: 10
-  num_block: 20
-  squeeze_factor: 16
+  type: SwinIR
   upscale: 2
-  res_scale: 1
-  img_range: 255.
-#  rgb_mean: [0.4488, 0.4371, 0.4040]
-  rgb_mean: [0.8079696, 0.81205904, 0.7733054]
+  in_chans: 3
+  img_size: 48
+  window_size: 8
+  img_range: 1.
+  depths: [6, 6, 6, 6, 6, 6]
+  embed_dim: 180
+  num_heads: [6, 6, 6, 6, 6, 6]
+  mlp_ratio: 2
+  upsampler: 'pixelshuffle'
+  resi_connection: '1conv'
+
 # path
 path:
   pretrain_network_g: ~
@@ -67,17 +67,16 @@ train:
   ema_decay: 0.999
   optim_g:
     type: Adam
-    lr: !!float 1e-4
+    lr: !!float 2e-4
     weight_decay: 0
     betas: [0.9, 0.99]
 
   scheduler:
     type: MultiStepLR
-    milestones: [200000]
+    milestones: [250000, 400000, 450000, 475000]
     gamma: 0.5
 
-#  total_iter: 300000
-  total_iter: 300000
+  total_iter: 500000
   warmup_iter: -1  # no warm up
 
   # losses
@@ -88,7 +87,7 @@ train:
 
 # validation settings
 val:
-  val_freq: !!float 5e3
+  val_freq: !!float 5
   save_img: false
 
   metrics:
